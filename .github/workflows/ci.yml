@@ -1,3 +1,4 @@
+
 name: CampusFix Backend CI/CD
 
 on:
@@ -36,6 +37,8 @@ jobs:
         env:
           NODE_ENV: test
           JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
+          LANDING_URL: ${{ vars.LANDING_URL }}
+          LANDING_SESSION_SECRET: ${{ secrets.CI_LANDING_SESSION_SECRET }}
 
       - name: Compile TypeScript
         run: npm run build
