@@ -24,22 +24,44 @@ vi.mock("../src/config/swagger", () => ({
   swaggerSpec: {},
 }));
 
-describe("CampusFix API", () => {
+describe("SaySo API", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
   describe("GET /health", () => {
-    it("returns healthy status when MySQL and Redis are up", async () => {
-      vi.mocked(redis.ping).mockResolvedValue("PONG");
-      vi.mocked(pingDB).mockResolvedValue(true);
-
+    it("returns healthy status when API is running", async () => {
       const response = await request(app).get("/health");
 
       expect(response.status).toBe(200);
+
       expect(response.body).toMatchObject({
         status: "ok",
-        message: "CampusFix API is running",
+        message: "SaySo API is running",
+        services: {
+          api: "up",
+        },
+      });
+
+      expect(response.body.timestamp).toBeDefined();
+
+      // Liveness should not depend on external services.
+      expect(redis.ping).not.toHaveBeenCalled();
+      expect(pingDB).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("GET /ready", () => {
+    it("returns ready when MySQL and Redis are up", async () => {
+      vi.mocked(redis.ping).mockResolvedValue("PONG");
+      vi.mocked(pingDB).mockResolvedValue(true);
+
+      const response = await request(app).get("/ready");
+
+      expect(response.status).toBe(200);
+
+      expect(response.body).toMatchObject({
+        status: "ok",
         services: {
           api: "up",
           redis: "up",
@@ -52,35 +74,42 @@ describe("CampusFix API", () => {
       expect(pingDB).toHaveBeenCalledOnce();
     });
 
-    it("reports Redis as down when its ping fails", async () => {
-      vi.mocked(redis.ping).mockRejectedValue(new Error("Redis unavailable"));
+    it("returns 503 when Redis is unavailable", async () => {
+      vi.mocked(redis.ping).mockRejectedValue(
+        new Error("Redis unavailable"),
+      );
       vi.mocked(pingDB).mockResolvedValue(true);
 
-      const response = await request(app).get("/health");
+      const response = await request(app).get("/ready");
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(503);
+      expect(response.body.status).toBe("degraded");
       expect(response.body.services.redis).toBe("down");
       expect(response.body.services.mysql).toBe("up");
     });
 
-    it("reports MySQL as down when the database ping fails", async () => {
+    it("returns 503 when MySQL is unavailable", async () => {
       vi.mocked(redis.ping).mockResolvedValue("PONG");
       vi.mocked(pingDB).mockResolvedValue(false);
 
-      const response = await request(app).get("/health");
+      const response = await request(app).get("/ready");
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(503);
+      expect(response.body.status).toBe("degraded");
       expect(response.body.services.redis).toBe("up");
       expect(response.body.services.mysql).toBe("down");
     });
 
-    it("reports both dependencies as down when both are unavailable", async () => {
-      vi.mocked(redis.ping).mockRejectedValue(new Error("Redis unavailable"));
+    it("returns 503 when both dependencies are unavailable", async () => {
+      vi.mocked(redis.ping).mockRejectedValue(
+        new Error("Redis unavailable"),
+      );
       vi.mocked(pingDB).mockResolvedValue(false);
 
-      const response = await request(app).get("/health");
+      const response = await request(app).get("/ready");
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(503);
+
       expect(response.body.services).toEqual({
         api: "up",
         redis: "down",
@@ -91,7 +120,9 @@ describe("CampusFix API", () => {
 
   describe("Unknown routes", () => {
     it("returns 404 for a nonexistent endpoint", async () => {
-      const response = await request(app).get("/route-that-does-not-exist");
+      const response = await request(app).get(
+        "/route-that-does-not-exist",
+      );
 
       expect(response.status).toBe(404);
     });
