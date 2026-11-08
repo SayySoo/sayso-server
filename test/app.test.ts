@@ -30,26 +30,29 @@ describe("SaySo API", () => {
   });
 
   describe("GET /health", () => {
-    it("returns healthy status when API is running", async () => {
-      const response = await request(app).get("/health");
+  it("returns healthy status when MySQL and Redis are up", async () => {
+    vi.mocked(redis.ping).mockResolvedValue("PONG");
+    vi.mocked(pingDB).mockResolvedValue(true);
 
-      expect(response.status).toBe(200);
+    const response = await request(app).get("/health");
 
-      expect(response.body).toMatchObject({
-        status: "ok",
-        message: "SaySo API is running",
-        services: {
-          api: "up",
-        },
-      });
+    expect(response.status).toBe(200);
 
-      expect(response.body.timestamp).toBeDefined();
-
-      // Liveness should not depend on external services.
-      expect(redis.ping).not.toHaveBeenCalled();
-      expect(pingDB).not.toHaveBeenCalled();
+    expect(response.body).toMatchObject({
+      status: "ok",
+      message: "SaySo API is running",
+      services: {
+        api: "up",
+        mysql: "up",
+        redis: "up",
+      },
     });
+
+    expect(response.body.timestamp).toBeDefined();
+    expect(redis.ping).toHaveBeenCalledOnce();
+    expect(pingDB).toHaveBeenCalledOnce();
   });
+});
 
   describe("GET /ready", () => {
     it("returns ready when MySQL and Redis are up", async () => {
