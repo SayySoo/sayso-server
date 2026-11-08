@@ -31,7 +31,7 @@ const envSchema = z.object({
   LANDING_SESSION_SECRET: z.string().min(32),
   LANDING_SESSION_TTL: z.coerce.number().int().positive().default(86400),
   STUDENT_URL: z.string().url().optional(),
-
+  RAG_API_URL: z.string().url().optional(),
 
   
   
@@ -67,4 +67,5 @@ export const env = {
   LANDING_SESSION_SECRET: parsed.data.LANDING_SESSION_SECRET,
   LANDING_SESSION_TTL: parsed.data.LANDING_SESSION_TTL,
   STUDENT_URL: parsed.data.STUDENT_URL,
+  RAG_API_URL: parsed.data.RAG_API_URL,
 };

@@ -43,6 +43,13 @@
       "when": 1792689463598,
       "tag": "0005_colossal_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1794128348602,
+      "tag": "0006_soft_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }
