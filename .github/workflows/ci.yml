@@ -78,6 +78,15 @@ jobs:
           gunzip -c campus-x-server.tar.gz | docker load
           rm -f campus-x-server.tar.gz
 
+      - name: Run database migrations
+        run: |
+          set -euo pipefail
+
+          docker compose \
+            --env-file "$HOME/.env.production" \
+            -f "$HOME/compose.prod.yaml" \
+            run --rm --no-deps api node dist/db/migrate.js
+
       - name: Deploy API
         run: |
           set -euo pipefail

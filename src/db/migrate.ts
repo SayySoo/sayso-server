@@ -1,3 +1,4 @@
+
 import { drizzle } from "drizzle-orm/mysql2";
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import { pool } from "../config/db";
@@ -6,13 +7,17 @@ import { logger } from "../config/logger";
 async function main() {
   try {
     logger.info("🔄 Running migrations...");
+
     const db = drizzle(pool);
-    await migrate(db, { migrationsFolder: "./drizzle" });
+
+    await migrate(db, {
+      migrationsFolder: "./drizzle",
+    });
+
     logger.info("✅ Migrations applied successfully");
-    process.exit(0);
   } catch (err) {
     logger.error({ err }, "❌ Migration failed");
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }
