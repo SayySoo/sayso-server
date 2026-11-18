@@ -1,515 +1,408 @@
-# CampusFix API
+# SaySo Backend API
 
-REST API for **CampusFix**, a campus problem-reporting and resolution
-platform. Students submit complaints, staff work on assigned issues, and
-managers review operational analytics.
+<p align="center">
+  <strong>A campus issue-reporting and resolution platform.</strong><br/>
+  Students raise issues, staff resolve them, and administrators monitor campus operations.
+</p>
 
-## Table of Contents
+<p align="center">
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white" alt="Node.js 22+"/></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript"/></a>
+  <a href="https://expressjs.com/"><img src="https://img.shields.io/badge/Express-5.x-000000?logo=express&logoColor=white" alt="Express"/></a>
+  <a href="https://www.mysql.com/"><img src="https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white" alt="MySQL"/></a>
+  <a href="https://orm.drizzle.team/"><img src="https://img.shields.io/badge/Drizzle_ORM-TypeScript-C5F74F?logo=drizzle&logoColor=black" alt="Drizzle ORM"/></a>
+  <a href="https://redis.io/"><img src="https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white" alt="Redis"/></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker"/></a>
+  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-Vitest-6E9F18?logo=vitest&logoColor=white" alt="Vitest"/></a>
+</p>
 
--   [Overview](#overview)
--   [Requirements](#requirements)
--   [Run Locally](#run-locally)
--   [Base URL](#base-url)
--   [Response Format](#response-format)
--   [Complaint Statuses and
-    Priorities](#complaint-statuses-and-priorities)
--   [Endpoints](#endpoints)
-    -   [Complaints](#complaints)
-    -   [Categories](#categories)
-    -   [Tags](#tags)
-    -   [Reports and Analytics](#reports-and-analytics)
--   [Example Workflows](#example-workflows)
--   [Error Handling](#error-handling)
--   [API Documentation](#api-documentation)
--   [Notes](#notes)
+---
 
-## Overview
+## ✨ Overview
 
-The API supports
+SaySo is a campus problem-reporting platform backed by a REST API built with Node.js, Express and TypeScript. It provides endpoints for authentication, complaint management, student and staff profiles, departments, reporting, and an AI-assisted chat experience.
 
--   Creating, listing, and viewing complaints
--   Filtering and paginating complaint lists
--   Updating complaint status
--   Adding comments to complaints
--   Attaching and detaching tags
--   Assigning complaints to staff through a MySQL stored procedure
--   Listing complaint categories and tags
--   Viewing system and department reports
--   Finding unassigned staff, silent students, and high-volume
-    categories
+The backend uses MySQL for persistent relational data, Drizzle ORM for type-safe database access, and Redis for caching and short-lived authentication handoff data. A separate Python FastAPI RAG service powers the chat assistant.
 
-## Requirements
+> Some legacy database names, package metadata and internal documentation still use the name **CampusFix**.
 
--   Node.js and npm
--   MySQL
--   Redis, if enabled by the backend configuration
--   The CampusFix API server configured with the required environment
-    variables
+## 🚀 Features
 
-## Run Locally
+- **Authentication:** Email/password login, Google sign-in, JWT-protected API routes, role checks, and a landing-page session handoff.
+- **Complaint lifecycle:** Create, view, update, assign, comment on, tag, and track complaints.
+- **Profiles and administration:** Student profile management, admin/staff listing and profile endpoints, and department/category management.
+- **Reports and analytics:** System statistics, department workload, and operational analytics.
+- **AI chat:** Authenticated chat requests proxied to a separate FastAPI RAG service, with chat history stored in MySQL.
+- **Caching:** Redis-backed complaint-list caching and temporary handoff/session data.
+- **API documentation:** Swagger UI and a generated OpenAPI JSON document.
+- **Operations:** Health, liveness and readiness endpoints; Docker Compose for local services; automated build/test/deployment workflow.
 
-Install dependencies and start the API using the scripts configured in
-your repository:
+## 🧰 Tech stack
 
-``` bash
+| Area | Technology |
+|---|---|
+| Runtime | Node.js 22 |
+| Language | TypeScript 5.9 |
+| HTTP framework | Express 5 |
+| Database | MySQL 8 |
+| ORM and migrations | Drizzle ORM, Drizzle Kit |
+| Cache and short-lived data | Redis 7, ioredis |
+| Validation | Zod |
+| Authentication | JSON Web Tokens, bcryptjs, Google ID-token verification |
+| Landing-page session | HTTP-only cookie, Redis-backed session |
+| Logging | Pino, pino-http |
+| API documentation | Swagger UI, swagger-jsdoc, OpenAPI 3 |
+| Testing | Vitest, Supertest |
+| Infrastructure | Docker, Docker Compose |
+| AI integration | Python FastAPI RAG service |
+
+## 🏗️ Architecture
+
+~~~text
+Student / Staff / Admin clients
+            |
+            | HTTP + JSON
+            v
+      Express API (8000)
+            |
+   +--------+---------+----------------+
+   |        |         |                |
+ Routes  Middleware  Controllers    Swagger
+   |     Auth / RBAC     |
+   +---------------------+
+             |
+          Services
+             |
+      +------+-------+
+      |              |
+   MySQL 8         Redis 7
+  (Drizzle)    (cache/session)
+             |
+       Chat service
+             |
+       FastAPI RAG API
+~~~
+
+### Request flow
+
+A typical API request follows this path:
+
+**Client → Express route → Middleware → Controller → Service → MySQL/Redis → Response**
+
+Routes map HTTP methods and paths to handlers. Middleware performs cross-cutting checks such as authentication. Controllers handle HTTP input/output, while services contain application logic.
+
+## 📁 Project structure
+
+~~~text
+src/
+├── app.ts                  # Express app, middleware, health and docs routes
+├── index.ts                # Server startup and graceful shutdown
+├── config/                 # Environment, database, Redis, logger, Swagger
+├── controllers/            # HTTP request handlers
+├── db/                     # Drizzle client, schemas and migration helpers
+├── dto/                    # Data transfer object definitions
+├── middlewares/            # Authentication, authorization and error handling
+├── routes/                 # Feature-based API route modules
+├── services/               # Business logic and integrations
+├── types/                  # Shared TypeScript types
+├── utils/                  # Reusable helpers
+└── validators/             # Zod request schemas
+
+drizzle/                    # Generated SQL migrations
+scripts/                    # Manual database scripts
+test/                       # Automated tests
+Dockerfile
+docker-compose.yml
+drizzle.config.ts
+~~~
+
+## ⚡ Getting started
+
+### Prerequisites
+
+- Node.js 22 or later and npm
+- Docker Desktop with Docker Compose (recommended for local MySQL and Redis)
+- Git
+
+### 1. Clone the repository
+
+~~~bash
+git clone https://github.com/SayySoo/sayso-server.git
+cd sayso-server
+~~~
+
+### 2. Configure environment variables
+
+Create a local **.env** file in the repository root. Do not commit real secrets.
+
+| Variable | Purpose | Default / requirement |
+|---|---|---|
+| NODE_ENV | Runtime environment | development |
+| PORT | API port | 8000 |
+| DB_HOST | MySQL hostname | localhost |
+| DB_PORT | MySQL port | 3306 |
+| DB_USER | MySQL username | root |
+| DB_PASSWORD | MySQL password | Configure locally |
+| DB_NAME | Database name | campusfix |
+| REDIS_HOST | Redis hostname | localhost |
+| REDIS_PORT | Redis port | 6379 |
+| JWT_SECRET | JWT signing secret | Required, at least 10 characters |
+| JWT_EXPIRES_IN | JWT lifetime | 7d |
+| GOOGLE_CLIENT_ID | Google sign-in audience/client ID | Optional unless Google login is used |
+| LANDING_URL | Landing application URL | Required URL |
+| LANDING_SESSION_SECRET | Landing-session signing secret | Required, at least 32 characters |
+| LANDING_SESSION_TTL | Landing-session lifetime in seconds | 86400 |
+| STUDENT_URL | Allowed student frontend origin for CORS | Optional URL |
+| RAG_API_URL | Base URL of the FastAPI RAG service | Optional URL; required for chat |
+
+The environment configuration is validated at startup. Use strong, unique secrets and keep production values in your deployment environment rather than in Git.
+
+### 3. Start MySQL and Redis
+
+The repository includes a Docker Compose setup:
+
+~~~bash
+docker compose up -d mysql redis
+~~~
+
+The Compose file configures MySQL 8 and Redis 7. Make sure the database credentials in **.env** match the credentials configured for your local database service.
+
+### 4. Install dependencies and run migrations
+
+~~~bash
 npm install
+npm run db:migrate
+~~~
+
+If you have intentionally changed a Drizzle schema, generate a migration before applying it:
+
+~~~bash
+npm run db:generate
+npm run db:migrate
+~~~
+
+### 5. Start the API
+
+~~~bash
 npm run dev
-```
+~~~
 
-The examples in this README assume the API is running at
-`http://localhost:8000`.
+The API listens on **http://localhost:8000** by default.
 
-## Base URL
+### Run the full local stack
 
-``` text
-http://localhost:8000
-```
+If your **.env** is configured for the Compose service names (**mysql** and **redis**), you can start the API and dependencies together:
 
-All application routes below use the `/api/v1` prefix.
+~~~bash
+docker compose up --build
+~~~
 
-## Response Format
+## 🌐 API reference
 
-The API commonly wraps results in a JSON object with a `success`
-property and response data. Exact response properties can vary by
-endpoint.
+**Base URL:** http://localhost:8000  
+**API prefix:** /api/v1
 
-Example error response:
+All request and response bodies use JSON unless otherwise noted. Protected API routes use:
 
-``` json
-{
-  "success": false,
-  "message": "Something went wrong"
-}
-```
+~~~http
+Authorization: Bearer <JWT>
+~~~
 
-## Complaint Statuses and Priorities
+### Health and operational endpoints
 
-### Status values
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /health | Checks API, MySQL and Redis; returns 503 if a dependency is unavailable |
+| GET | /live | Liveness check for the API process |
+| GET | /ready | Readiness check including MySQL and Redis |
+| GET | /api-docs | Swagger UI |
+| GET | /api-docs.json | Raw OpenAPI JSON |
 
--   `open`
--   `assigned`
--   `in_progress`
--   `resolved`
--   `rejected`
--   `closed`
+### Authentication
 
-### Priority values
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | /api/v1/auth/register | Public | Register an account |
+| POST | /api/v1/auth/login | Public | Log in and receive an API token |
+| POST | /api/v1/auth/google | Public | Sign in using a Google ID token |
+| POST | /api/v1/auth/handoff | JWT required | Generate a one-time landing-page handoff code |
+| POST | /api/v1/auth/handoff/exchange | Handoff code | Redeem the code and establish the landing session |
+| GET | /api/v1/public/me | Landing session cookie | Get the current landing-session user's profile |
+| POST | /api/v1/public/logout | Landing session cookie | End the landing-page session |
 
--   `low`
--   `medium`
--   `high`
--   `urgent`
-
-## Endpoints
+The main API uses JWT bearer authentication. The landing-page handoff exchanges a short-lived, one-time code for a separate HTTP-only session cookie.
 
 ### Complaints
 
-#### 1. List complaints
+| Method | Endpoint | Access in current router | Description |
+|---|---|---|---|
+| GET | /api/v1/complaints | No route-level auth middleware | List complaints with pagination and filters |
+| POST | /api/v1/complaints | JWT required | Create a complaint |
+| GET | /api/v1/complaints/me | Student JWT | List the authenticated student's complaints |
+| GET | /api/v1/complaints/:id | No route-level auth middleware | Get complaint details, comments, history and tags |
+| PATCH | /api/v1/complaints/:id | Student or admin JWT | Update a complaint |
+| PATCH | /api/v1/complaints/:id/status | Staff or admin JWT | Update status, subject to transition rules |
+| DELETE | /api/v1/complaints/:id | Student or admin JWT | Delete a complaint, subject to service-level rules |
+| POST | /api/v1/complaints/:id/comments | JWT required | Add a complaint comment |
+| POST | /api/v1/complaints/:id/tags | Staff or admin JWT | Attach a tag |
+| DELETE | /api/v1/complaints/:id/tags/:tagSlug | Staff or admin JWT | Detach a tag |
+| POST | /api/v1/complaints/:id/assign | Admin JWT | Assign a complaint to staff |
 
-`GET /api/v1/complaints`
+Complaint list query parameters include:
 
-Returns a paginated list of complaints. The list can be filtered using
-query parameters.
+| Parameter | Type | Description |
+|---|---|---|
+| page | Integer | Page number (default: 1) |
+| limit | Integer | Page size (default: 20; maximum: 100) |
+| status | String | Filter by complaint status |
+| priority | String | Filter by priority |
+| categoryId | Integer | Filter by category |
+| departmentId | Integer | Filter by department |
+| studentId | Integer | Filter by student |
+| search | String | Search complaint content |
 
-  Query parameter   Type      Description
-  ----------------- --------- ------------------------------------
-  `page`            integer   Page number; defaults to `1`
-  `limit`           integer   Results per page; defaults to `20`
-  `status`          string    Filter by complaint status
-  `priority`        string    Filter by priority
-  `search`          string    Search complaints
-
-Example:
-
-``` bash
-curl -i "http://localhost:8000/api/v1/complaints?page=1&limit=20&status=open&priority=high"
-```
-
-A successful response is documented as a paginated object containing
-`success`, `data`, and `pagination` (`page`, `limit`, `total`,
-`totalPages`).
-
-#### 2. Create a complaint
-
-`POST /api/v1/complaints`
-
-Creates a new complaint.
-
-Content-Type: `application/json`
-
-Request body:
-
-``` json
-{
-  "title": "Wi-Fi not working in Lab 204",
-  "description": "There is no internet connection in the lab.",
-  "studentId": 1,
-  "categorySlug": "wi-fi-issue",
-  "location": "Lab 204",
-  "building": "Academic Block A",
-  "priority": "medium"
-}
-```
-
-Required fields: `title`, `description`, `studentId`, `categorySlug`,
-and `location`.
-
-`building` is optional. `priority` accepts `low`, `medium`, `high`, or
-`urgent` and defaults to `medium`.
+**Statuses:** open, assigned, in_progress, resolved, rejected, closed  
+**Priorities:** low, medium, high, urgent
 
 Example:
 
-``` bash
-curl -i -X POST "http://localhost:8000/api/v1/complaints" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Wi-Fi not working in Lab 204",
-    "description": "There is no internet connection in the lab.",
-    "studentId": 1,
-    "categorySlug": "wi-fi-issue",
-    "location": "Lab 204",
-    "building": "Academic Block A",
-    "priority": "medium"
-  }'
-```
+~~~bash
+curl "http://localhost:8000/api/v1/complaints?page=1&limit=20&status=open&priority=high"
+~~~
 
-Expected documented success status: `201 Created`.
+Create a complaint (example body; adapt IDs and values to your database):
 
-#### 3. Get complaint details
+~~~bash
+curl -X POST "http://localhost:8000/api/v1/complaints" -H "Authorization: Bearer <JWT>" -H "Content-Type: application/json" -d '{"title":"Wi-Fi not working in Lab 204","description":"There is no internet connection in the lab.","studentId":1,"categorySlug":"wi-fi-issue","location":"Lab 204","building":"Academic Block A","priority":"medium"}'
+~~~
 
-`GET /api/v1/complaints/{id}`
+### Students, staff and departments
 
-Returns a complaint by ID, including its comments, status history, and
-tags.
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | /api/v1/student/me | Student JWT | Get the authenticated student's profile |
+| PATCH | /api/v1/student/update-me | Student JWT | Update the authenticated student's profile |
+| GET | /api/v1/staff/me | Admin JWT | Get the authenticated admin's profile |
+| PATCH | /api/v1/staff/me | Admin JWT | Update the authenticated admin's profile |
+| GET | /api/v1/staff | Admin JWT | List staff |
+| GET | /api/v1/staff/admins | Admin JWT | List active admin accounts |
+| GET | /api/v1/departments | No route-level auth middleware | List departments |
+| POST | /api/v1/departments | Admin JWT | Create a department |
 
-Example:
+### Categories and tags
 
-``` bash
-curl -i "http://localhost:8000/api/v1/complaints/4"
-```
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | /api/v1/categories | No route-level auth middleware | List active complaint categories |
+| POST | /api/v1/categories | Admin JWT | Create a category |
+| GET | /api/v1/tags | No route-level auth middleware | List available tags |
 
-Possible documented response statuses: `200 OK`, `404 Not Found`.
+### Reports and analytics
 
-#### 4. Update complaint status
+| Method | Endpoint | Access in current router | Description |
+|---|---|---|---|
+| GET | /api/v1/reports/system | No route-level auth middleware | System-wide complaint statistics |
+| GET | /api/v1/reports/departments | No route-level auth middleware | Complaint workload by department |
+| GET | /api/v1/reports/analytics/unassigned-staff | No route-level auth middleware | Staff who have never been assigned a complaint |
+| GET | /api/v1/reports/analytics/silent-students | No route-level auth middleware | Students who filed complaints but never commented |
+| GET | /api/v1/reports/analytics/high-volume-categories | No route-level auth middleware | Categories with more than two complaints |
 
-`PATCH /api/v1/complaints/{id}/status`
+### AI chat (RAG integration)
 
-Updates a complaint's status. The backend enforces allowed status
-transitions.
+These endpoints require a valid JWT. The Node.js API proxies chat questions to the separately hosted Python FastAPI RAG service using **RAG_API_URL**.
 
-Request body:
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /api/v1/chat | Submit a question and receive the assistant's answer |
+| GET | /api/v1/chat/history | Get the authenticated user's recent chat history (up to 50 messages) |
 
-``` json
-{
-  "newStatus": "in_progress",
-  "changedByStaffId": 5,
-  "note": "Started investigating the Wi-Fi issue."
-}
-```
+Example request:
 
-Supported properties:
+~~~bash
+curl -X POST "http://localhost:8000/api/v1/chat" -H "Authorization: Bearer <JWT>" -H "Content-Type: application/json" -d '{"query":"How do I report a classroom projector issue?"}'
+~~~
 
-  Property             Type               Description
-  -------------------- ------------------ ----------------------------------------
-  `newStatus`          string, required   New complaint status
-  `changedByStaffId`   integer            Staff member making the change
-  `note`               string             Status-history note
-  `resolutionNote`     string             Explanation of the resolution
-  `assignedStaffId`    integer            Staff member assigned to the complaint
+The chat service expects the RAG API at **<RAG_API_URL>/chat**. The RAG service is a separate Python application and must be running and reachable for chat requests to succeed.
 
-Example:
+> **Access-control note:** The table above reflects middleware currently attached in the route definitions. In particular, complaint list/detail reads, reports, category/tag reads, and department listing currently have no route-level authentication middleware. Review whether these endpoints should be protected before using real student or operational data in production. Service-level checks may still apply to individual operations.
 
-``` bash
-curl -i -X PATCH "http://localhost:8000/api/v1/complaints/4/status" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "newStatus": "in_progress",
-    "changedByStaffId": 5,
-    "note": "Started investigating the Wi-Fi issue."
-  }'
-```
+## 🔐 Authentication overview
 
-The OpenAPI definition documents `200 OK` for success and
-`400 Bad Request` for invalid status transitions.
+- **JWT API authentication:** The client sends an access token in the Authorization Bearer header. **requireAuth** verifies it and **requireRole** enforces role-based access.
+- **Roles:** The API middleware recognizes student, staff and admin.
+- **Google sign-in:** The backend verifies a Google ID token using the configured Google client ID.
+- **Landing-page SSO handoff:** An authenticated API user requests a one-time handoff code. The landing app exchanges that code, and the backend issues the **sayso_landing_session** HTTP-only cookie.
+- **Cookie settings:** The landing session cookie is HTTP-only, uses SameSite=Lax, and is marked Secure in production.
 
-#### 5. Add a comment
+## 🗄️ Database and migrations
 
-`POST /api/v1/complaints/{id}/comments`
+Database schemas are defined in TypeScript under **src/db/schema/**. Drizzle Kit uses **drizzle.config.ts** and writes generated SQL migrations to **drizzle/**.
 
-Adds a comment to a complaint.
+Useful commands:
 
-Request body:
+| Command | Purpose |
+|---|---|
+| npm run db:generate | Generate migration files from schema changes |
+| npm run db:migrate | Apply generated migrations |
+| npm run db:push | Push schema changes directly (use deliberately; review production changes first) |
+| npm run db:studio | Open Drizzle Studio |
+| npm run db:seed-admin | Run the admin seed script |
 
-``` json
-{
-  "commenterType": "staff",
-  "staffId": 5,
-  "body": "I am checking the router connection."
-}
-```
+The project also contains manual SQL migration scripts under **scripts/manual-migrations/**. Check the migration history and deployment process before applying manual scripts; do not assume generated migrations include every database object.
 
-Required fields: `commenterType` and `body`.
+## 🧪 Testing and quality
 
-`commenterType` accepts `student` or `staff`. Supply `studentId` for a
-student comment or `staffId` for a staff comment, as appropriate for the
-implementation.
+Run the automated test suite:
 
-Example:
+~~~bash
+npm test
+~~~
 
-``` bash
-curl -i -X POST "http://localhost:8000/api/v1/complaints/4/comments" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "commenterType": "staff",
-    "staffId": 5,
-    "body": "I am checking the router connection."
-  }'
-```
+Run the TypeScript build:
 
-Expected documented success status: `201 Created`.
+~~~bash
+npm run build
+~~~
 
-#### 6. Attach a tag
+## 🐳 Docker
 
-`POST /api/v1/complaints/{id}/tags`
+The Dockerfile includes development and production build stages. Docker Compose provides the API, MySQL and Redis services for local development.
 
-Attaches an existing tag to a complaint using its slug.
+Common commands:
 
-Request body:
+~~~bash
+docker compose up --build
+docker compose up -d --build
+docker compose logs -f api
+docker compose down
+~~~
 
-``` json
-{
-  "tagSlug": "safety"
-}
-```
+Persistent Compose volumes are configured for MySQL and Redis data.
 
-Example:
+## 📊 Logging, health checks and deployment
 
-``` bash
-curl -i -X POST "http://localhost:8000/api/v1/complaints/4/tags" \
-  -H "Content-Type: application/json" \
-  -d '{"tagSlug":"safety"}'
-```
+- Pino and pino-http provide structured application and HTTP request logging.
+- **GET /live** checks whether the API process is running.
+- **GET /ready** checks whether MySQL and Redis are reachable.
+- **GET /health** reports the API and dependency status.
+- The repository's GitHub Actions workflow builds and tests the backend, builds the deployment artifact/image, runs database migrations during deployment, and restarts the API on the configured EC2 host.
 
-Expected documented success status: `201 Created`.
+Production deployment requires the corresponding GitHub Actions secrets, server configuration, and environment variables. Never put production credentials in this README or commit them to the repository.
 
-#### 7. Detach a tag
+## 🤝 Contributing
 
-`DELETE /api/v1/complaints/{id}/tags/{tagSlug}`
+1. Create a feature branch from main.
+2. Make focused changes and add or update tests where appropriate.
+3. Run npm test and npm run build.
+4. Update this README and the Swagger/OpenAPI annotations when API routes or request/response contracts change.
+5. Open a pull request describing the change.
 
-Removes a tag association from a complaint. This removes the
-association, not necessarily the tag definition itself.
+## 📄 License
 
-Example:
+The package metadata currently declares the ISC license. Check the repository's license file and project ownership terms before redistributing this code.
 
-``` bash
-curl -i -X DELETE "http://localhost:8000/api/v1/complaints/4/tags/safety"
-```
+---
 
-Expected documented success status: `200 OK`.
-
-#### 8. Assign a complaint to staff
-
-`POST /api/v1/complaints/{id}/assign`
-
-Assigns a complaint to a staff member using the backend stored procedure
-`sp_assign_complaint`.
-
-Request body:
-
-``` json
-{
-  "staffEmail": "rakesh.kumar@campusfix.edu",
-  "adminEmail": "lakshmi.pillai@campusfix.edu"
-}
-```
-
-Example:
-
-``` bash
-curl -i -X POST "http://localhost:8000/api/v1/complaints/4/assign" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "staffEmail": "rakesh.kumar@campusfix.edu",
-    "adminEmail": "lakshmi.pillai@campusfix.edu"
-  }'
-```
-
-Expected documented success status: `200 OK`.
-
-> Security note: the backend should verify the authenticated user's
-> admin permissions. In production, do not trust an `adminEmail`
-> supplied by the client as proof of identity.
-
-### Categories
-
-#### 9. List active categories
-
-`GET /api/v1/categories`
-
-Returns active complaint categories. The documented response includes
-category IDs, slugs, names, and optional default department IDs.
-
-Example:
-
-``` bash
-curl -i "http://localhost:8000/api/v1/categories"
-```
-
-Example response shape:
-
-``` json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "slug": "wi-fi-issue",
-      "name": "Wi-Fi Issue",
-      "defaultDepartmentId": 2
-    }
-  ]
-}
-```
-
-### Tags
-
-#### 10. List tags
-
-`GET /api/v1/tags`
-
-Returns the available complaint tags.
-
-Example:
-
-``` bash
-curl -i "http://localhost:8000/api/v1/tags"
-```
-
-### Reports and Analytics
-
-These endpoints provide aggregate statistics and analytical lists.
-
-#### 11. System-wide statistics
-
-`GET /api/v1/reports/system`
-
-Returns aggregate system statistics, including total complaints, open
-complaints, resolved complaints, and average resolution time.
-
-``` bash
-curl -i "http://localhost:8000/api/v1/reports/system"
-```
-
-#### 12. Department workload
-
-`GET /api/v1/reports/departments`
-
-Returns complaint workload grouped by department, using the
-`v_department_workload` SQL view according to the API specification.
-
-``` bash
-curl -i "http://localhost:8000/api/v1/reports/departments"
-```
-
-#### 13. Staff who have never been assigned a complaint
-
-`GET /api/v1/reports/analytics/unassigned-staff`
-
-Returns staff members who have never been assigned a complaint.
-
-``` bash
-curl -i "http://localhost:8000/api/v1/reports/analytics/unassigned-staff"
-```
-
-#### 14. Silent students
-
-`GET /api/v1/reports/analytics/silent-students`
-
-Returns students who have submitted at least one complaint but have
-never commented on a complaint, according to the documented query
-definition.
-
-``` bash
-curl -i "http://localhost:8000/api/v1/reports/analytics/silent-students"
-```
-
-#### 15. High-volume categories
-
-`GET /api/v1/reports/analytics/high-volume-categories`
-
-Returns categories with more than two complaints.
-
-``` bash
-curl -i "http://localhost:8000/api/v1/reports/analytics/high-volume-categories"
-```
-
-## Example Workflows
-
-### Complaint lifecycle
-
-1.  A student submits a complaint with `POST /api/v1/complaints`.
-2.  An admin reviews it using `GET /api/v1/complaints` and
-    `GET /api/v1/complaints/{id}`.
-3.  The admin assigns a staff member using
-    `POST /api/v1/complaints/{id}/assign`.
-4.  Staff updates progress using `PATCH /api/v1/complaints/{id}/status`.
-5.  Staff and students can add updates using
-    `POST /api/v1/complaints/{id}/comments`.
-6.  The complaint can be tagged using
-    `POST /api/v1/complaints/{id}/tags`.
-7.  The student or admin can review the latest state and history using
-    `GET /api/v1/complaints/{id}`.
-
-The exact permissions and allowed status transitions depend on the
-backend authorization and state-transition logic.
-
-### Admin reporting
-
-1.  Fetch system-wide totals from `/api/v1/reports/system`.
-2.  Review department workload at `/api/v1/reports/departments`.
-3.  Inspect analytical lists using the `/api/v1/reports/analytics/...`
-    endpoints.
-
-## Error Handling
-
-The API may return errors for invalid input, missing resources, or
-invalid status transitions. A typical error body is:
-
-``` json
-{
-  "success": false,
-  "message": "Complaint not found"
-}
-```
-
-Use the HTTP status code and `message` field to understand the failure.
-Exact error messages depend on the backend implementation.
-
-## API Documentation
-
-If Swagger UI is configured in the server, open:
-
-``` text
-http://localhost:8000/api-docs
-```
-
-This URL is optional and only works if the Swagger UI route is mounted
-in the Express application.
-
-The API specification supplied for this README declares OpenAPI `3.0.0`.
-Keep the OpenAPI document and this README synchronized when routes,
-parameters, or response schemas change.
-
-## Notes
-
--   The examples use local development URLs and example IDs/emails.
-    Replace them with valid records in your database.
--   The documented API specification does not define a health-check
-    path, even though it declares a `Health` tag. If your server exposes
-    `GET /health`, document that endpoint separately.
--   Authentication is not described as a requirement on the individual
-    endpoint definitions in the supplied specification. Protect
-    private/admin operations with backend authentication and
-    authorization before deployment.
--   Confirm request field names and response shapes against the current
-    controllers and validators when the implementation changes.
+<p align="center">
+  Built for a better campus experience with ☕ and TypeScript.
+</p>
