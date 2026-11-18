@@ -25,7 +25,7 @@ managers review operational analytics.
 
 ## Overview
 
-The API supports:
+The API supports
 
 -   Creating, listing, and viewing complaints
 -   Filtering and paginating complaint lists
